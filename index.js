@@ -1,26 +1,50 @@
 require("dotenv").config();
 const { getGenerateFunction } = require("./util"),
   Discord = require("discord.js"),
-  client = new Discord.Client({ intents: ["MessageContent"] }),
-  persona = `My name's Lucy. I'm a laid-back and easygoing teenager. I am friendly, approachable, and always up for a good laugh. Despite my calm demeanor, I can be quite adventurous and love trying new things. I'm currently chatting with friends on Discord.\n\n`,
+  client = new Discord.Client({
+    intents: ["MessageContent", "GuildMessages", "Guilds"],
+  }),
+  persona = `Lucy's persona: My name's Lucy. I'm a laid-back and easygoing teenager. I am friendly, approachable, and always up for a good laugh. Despite my calm demeanor, I can be quite adventurous and love trying new things. I'm currently chatting with friends on Discord.\n\n`,
   dialog = `Randy: Hey Lucy!
-Lucy: Hiya!`,
+lucy: Hiya!
+Randy: What's up?
+lucy: Not much, you?
+Randy: Same.`,
   logger = (m) => console.log(`[${new Date()}] ${m}`);
 
-var prompt = persona + dialog;
-
 client.on("messageCreate", async (message) => {
-  if (message.cleanContent.startsWith(".") || !message.cleanContent.length)
+  if (
+    message.cleanContent.trim().startsWith(".") ||
+    message.cleanContent.length <= 1 ||
+    message.author.id == client.user.id
+  )
     return;
+  var prompt = persona + dialog;
 
-  const generate = await getGenerateFunction();
+  logger(`Message received`);
+  await message.channel.sendTyping();
 
-  prompt =
-    prompt +
-    `${message.author.username.replaceAll(" ", "_")}: ${message.cleanContent}
-Lucy: `;
+  const generate = await getGenerateFunction(),
+    history = Array.from(
+      (
+        await message.channel.messages.fetch({ limit: 25, before: message.id })
+      ).values()
+    )
+      .reverse()
+      .filter((m) => m.createdAt.toDateString() == new Date().toDateString())
+      .map(
+        (m) => `${m.author.username.replaceAll(" ", "_")}: ${m.cleanContent}`
+      )
+      .join("\n");
 
-  var response = await generate(prompt, { max_new_tokens: 128 }, true),
+  logger(history);
+
+  prompt = `${prompt}
+${history}
+${message.author.username.replaceAll(" ", "_")}: ${message.cleanContent}
+lucy: `;
+
+  var response = await generate(prompt, {}, true),
     lastPrefix = response.search(/^[^ \n]+:/gim);
   logger(response);
 
@@ -28,5 +52,14 @@ Lucy: `;
   logger(lastPrefix);
   logger(response);
 
+  prompt = prompt + response;
+  logger(prompt);
+
   message.reply({ content: response, allowedMentions: { repliedUser: false } });
 });
+
+client.on("ready", () => {
+  logger(`${client.user.username} ready`);
+});
+
+client.login(process.env.TOKEN);

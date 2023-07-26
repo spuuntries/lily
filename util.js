@@ -11,8 +11,8 @@ ws.onopen = () => {
   ws.send(
     JSON.stringify({
       type: "open_inference_session",
-      model: "meta-llama/Llama-2-70b-hf",
-      max_length: 1024,
+      model: "meta-llama/Llama-2-70b-chat-hf",
+      max_length: 4096,
     })
   );
   ws.on("message", (message) => {
@@ -38,7 +38,10 @@ async function generate(prompt, params, v) {
     ws.once("message", (message) => {
       const response = JSON.parse(message);
       performance.mark("end");
-      if (v) console.log(performance.measure("gen_perf", "start", "end"));
+      if (v)
+        console.log(
+          performance.measure("gen_perf", "start", "end").duration + "ms"
+        );
 
       resolve(response.outputs);
     });
