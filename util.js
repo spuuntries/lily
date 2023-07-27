@@ -1,53 +1,52 @@
 const { WebSocket } = require("ws"),
-  { performance } = require("perf_hooks"),
-  ws = new WebSocket(`wss://chat.petals.dev/api/v2/generate`);
+  { performance } = require("perf_hooks");
 
-let resolveGenerateFunction;
-const generateFunctionPromise = new Promise((resolve) => {
-  resolveGenerateFunction = resolve;
-});
-
-ws.onopen = () => {
-  ws.send(
-    JSON.stringify({
-      type: "open_inference_session",
-      model: "meta-llama/Llama-2-70b-chat-hf",
-      max_length: 4096,
-    })
-  );
-  ws.on("message", (message) => {
-    const response = JSON.parse(message);
-    resolveGenerateFunction(generate);
-  });
-};
-
-async function generate(prompt, params, v) {
+async function generate(prompt, v) {
   performance.mark("start");
-  if (!params) params = {};
-
-  ws.send(
-    JSON.stringify({
-      type: "generate",
-      inputs: prompt,
-      max_new_tokens: params.max_new_tokens ? params.max_new_tokens : 32,
-      ...params,
-    })
-  );
+  const ws = new WebSocket(`wss://chat.petals.dev/api/v2/generate`);
 
   return new Promise((resolve) => {
-    ws.once("message", (message) => {
-      const response = JSON.parse(message);
-      performance.mark("end");
-      if (v)
-        console.log(
-          performance.measure("gen_perf", "start", "end").duration + "ms"
+    ws.once("open", () => {
+      ws.send(
+        JSON.stringify({
+          type: "open_inference_session",
+          model: "meta-llama/Llama-2-70b-chat-hf",
+          max_length: 8192,
+        })
+      );
+
+      ws.once("message", (message) => {
+        if (v) console.log("Generating");
+
+        ws.send(
+          JSON.stringify({
+            type: "generate",
+            inputs: prompt,
+            do_sample: 1,
+            temperature: 0.9,
+            stop_sequence: "</s>",
+            max_new_tokens: 80,
+          })
         );
 
-      resolve(response.outputs);
+        ws.once("message", async (message) => {
+          const response = JSON.parse(message);
+          performance.mark("end");
+          if (v)
+            console.log(
+              performance.measure("gen_perf", "start", "end").duration + "ms"
+            );
+
+          ws.close();
+          if (!response.outputs) resolve(await generate(prompt, v));
+
+          resolve(response.outputs);
+        });
+      });
     });
   });
 }
 
 module.exports = {
-  getGenerateFunction: () => generateFunctionPromise,
+  generate,
 };
