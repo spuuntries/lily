@@ -9,13 +9,7 @@ const { generate } = require("./util"),
 .lily: Hiya!
 Randy: What's up?
 .lily: Not much, you?
-Randy: Same.
-.lily: Been watching some Netflix, binging k-dramas.
-Dan: Ooo neat
-.lily: yeah, losing track of time tho 😂
-Randy: LMAO yeah that happens I suppose
-Dan: lol
-.lily: mhm`,
+Randy: Same.`,
   logger = (m) => console.log(`[${new Date()}] ${m}`);
 
 client.on("messageCreate", async (message) => {
@@ -24,7 +18,7 @@ client.on("messageCreate", async (message) => {
     message.cleanContent.trim().startsWith("!ig") ||
     !message.cleanContent.length ||
     message.author.id == client.user.id ||
-    message.channel.id != process.env.LISTEN
+    !process.env.LISTEN.split("|").includes(message.channelId)
   )
     return;
   var prompt = persona + dialog;
@@ -58,7 +52,7 @@ client.on("messageCreate", async (message) => {
       (
         await message.channel.messages.fetch({ limit: 60, before: message.id })
       ).values()
-    )
+    ).filter((m) => !m.content.toLowerCase().trim().includes("!ig"))
   )
     .map((m) => `${m.author.username.replaceAll(" ", "_")}: ${m.cleanContent}`)
     .reverse()
@@ -86,7 +80,7 @@ ${message.author.username.replaceAll(" ", "_")}: ${message.cleanContent}
   message.reply({ content: response, allowedMentions: { repliedUser: false } });
 });
 
-client.once("ready", async () => {
+client.on("ready", async () => {
   logger(`${client.user.username} ready`);
 });
 
