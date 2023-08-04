@@ -23,7 +23,7 @@ async function generate(prompt, v) {
             type: "generate",
             inputs: prompt,
             do_sample: 1,
-            temperature: 0.9,
+            temperature: 0.75,
             stop_sequence: "</s>",
             max_new_tokens: 80,
           })
