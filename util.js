@@ -40,7 +40,7 @@ async function generate(prompt, v) {
           ws.close();
           if (!response.outputs) resolve(await generate(prompt, v));
 
-          resolve(response.outputs);
+          resolve(response.outputs.replaceAll("</s>", ""));
         });
       });
     });
